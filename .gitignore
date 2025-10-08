@@ -1,0 +1,41 @@
+# 排除压缩文件
+*.zip
+
+# 排除数据文件（太大，GitHub 限制 100MB）
+*.csv
+data/
+*.pth
+*.npz
+
+# 排除 macOS 系统文件
+.DS_Store
+.AppleDouble
+.LSOverride
+
+# 排除缓存和临时文件
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+
+# 排除 Jupyter Notebook 检查点
+.ipynb_checkpoints/
+
+# 排除虚拟环境
+venv/
+env/
+ENV/
+
+# 排除模型文件和训练数据
+*.pth
+*.pkl
+*.h5
+*.hdf5
+*.model
+
+# 排除数据集文件
+data/
+datasets/
+*.tar.gz
+
