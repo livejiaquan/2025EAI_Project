@@ -16,14 +16,17 @@ class Bottleneck(nn.Module):
         # Please replace ??? with the correct variable #            
         # example: in_channels, out_channels[0], ...   #
         ################################################
-        self.conv1 = nn.Conv2d(???, ???, kernel_size=1, stride=1, padding=0, bias=False)
-        self.bn1 = nn.BatchNorm2d(???)
+        # conv1: 1x1 卷積，降低通道數 (in_channels -> out_channels[0])
+        self.conv1 = nn.Conv2d(in_channels, out_channels[0], kernel_size=1, stride=1, padding=0, bias=False)
+        self.bn1 = nn.BatchNorm2d(out_channels[0])
 
-        self.conv2 = nn.Conv2d(???, ???, kernel_size=3, stride=stride, padding=1, bias=False)
-        self.bn2 = nn.BatchNorm2d(???)
+        # conv2: 3x3 卷積，處理特徵 (out_channels[0] -> out_channels[1])，stride可能為2做downsample
+        self.conv2 = nn.Conv2d(out_channels[0], out_channels[1], kernel_size=3, stride=stride, padding=1, bias=False)
+        self.bn2 = nn.BatchNorm2d(out_channels[1])
 
-        self.conv3 = nn.Conv2d(???, ???, kernel_size=1, stride=1, padding=0, bias=False)
-        self.bn3 = nn.BatchNorm2d(???)
+        # conv3: 1x1 卷積，增加通道數 (out_channels[1] -> out_channels[2])
+        self.conv3 = nn.Conv2d(out_channels[1], out_channels[2], kernel_size=1, stride=1, padding=0, bias=False)
+        self.bn3 = nn.BatchNorm2d(out_channels[2])
 
         self.relu = nn.ReLU(inplace=True)
         self.downsample = downsample
@@ -50,13 +53,13 @@ class ResNet(nn.Module):
         super(ResNet, self).__init__()
         self.current_cfg_idx = 0
 
-        # Conv1
-        self.conv1 = nn.Conv2d(in_channels, 64, kernel_size=3, stride=1, padding=1, bias=False)
-        self.bn1 = nn.BatchNorm2d(64)
+        # Conv1 - 使用 cfg[0] 來支援剪枝後的通道數
+        self.conv1 = nn.Conv2d(in_channels, cfg[0], kernel_size=3, stride=1, padding=1, bias=False)
+        self.bn1 = nn.BatchNorm2d(cfg[0])
         self.relu = nn.ReLU(inplace=True)
         self.maxpool = nn.MaxPool2d(kernel_size=3, stride=2, padding=1)
-        self.current_cfg_idx += 1
-        self.inplanes = 64
+        self.current_cfg_idx += 1  # 移動到下一個配置（第一個 Bottleneck）
+        self.inplanes = cfg[0]  # 當前通道數從 cfg[0] 讀取
 
         # Layer1~Layer4
         self.layer1 = self._make_layer(block, 64, layers[0], cfg)
@@ -73,8 +76,50 @@ class ResNet(nn.Module):
         #############################################################################
         # Figure out how to generate the correct layers and downsample based on cfg #
         #############################################################################
-
-        return 
+        downsample = None
+        layers = []
+        
+        # 從 cfg 中讀取第一個 block 的輸出通道配置
+        # 每個 Bottleneck 有 3 個卷積層，所以需要讀取 3 個通道數
+        out_channels = [cfg[self.current_cfg_idx], 
+                       cfg[self.current_cfg_idx + 1], 
+                       cfg[self.current_cfg_idx + 2]]
+        
+        # 記住這個 layer 的標準輸出通道數（保證 identity shortcut）
+        # 同一個 layer 內的所有 block 輸出必須相同
+        layer_out_channels = out_channels[2]
+        
+        # 如果維度不匹配（stride != 1 或 通道數改變），需要 downsample
+        # 這通常只發生在每個 layer 的第一個 block
+        if stride != 1 or self.inplanes != layer_out_channels:
+            downsample = nn.Sequential(
+                nn.Conv2d(self.inplanes, layer_out_channels, kernel_size=1, stride=stride, bias=False),
+                nn.BatchNorm2d(layer_out_channels, affine=False)  # 使用 affine=False 以符合老師的參數數量
+            )
+        
+        # 第一個 block（可能有 downsample 和 stride）
+        layers.append(block(self.inplanes, planes, out_channels, downsample, stride))
+        self.inplanes = layer_out_channels  # 更新當前通道數
+        self.current_cfg_idx += 3  # 移動 cfg 索引（每個 block 有 3 個卷積層）
+        
+        # 剩餘的 blocks（stride=1，identity shortcut）
+        # 關鍵：這些 block 的輸入輸出都必須是 layer_out_channels
+        for i in range(1, blocks):
+            out_channels = [cfg[self.current_cfg_idx], 
+                           cfg[self.current_cfg_idx + 1], 
+                           cfg[self.current_cfg_idx + 2]]
+            
+            # 確保 cfg 設計正確：同一 layer 內所有 block 的輸出必須相同
+            assert out_channels[2] == layer_out_channels, \
+                f"cfg 錯誤：block 輸出 {out_channels[2]} ≠ layer 輸出 {layer_out_channels}，會破壞 identity shortcut"
+            
+            # 因為輸入(self.inplanes) == 輸出(out_channels[2]) == layer_out_channels
+            # 所以不需要 downsample，使用 identity shortcut
+            layers.append(block(self.inplanes, planes, out_channels, None, 1))
+            # self.inplanes 保持不變（仍然是 layer_out_channels）
+            self.current_cfg_idx += 3
+        
+        return nn.Sequential(*layers) 
 
     def forward(self, x):
         x = self.relu(self.bn1(self.conv1(x)))
