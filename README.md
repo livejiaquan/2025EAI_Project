@@ -1,12 +1,14 @@
-# Artificial Intelligence Model Design & Application – Coursework Log
+# CIFAR-10 Model Compression — Training & Structured Pruning Experiments
 
-This repository collects my practical work for the 2025 NCKU “Artificial Intelligence Model Design and Application” course. Each lab folder contains executable notebooks, experiment reports, and artifacts that document the end-to-end training and model compression pipelines I implemented on CIFAR-10.
+End-to-end model compression experiments on CIFAR-10: a strong ResNet-18 training pipeline (**94.83%** test accuracy), followed by network slimming on ResNet-56 — sparsity training, structured channel pruning, and fine-tuning that retains **90.56%** accuracy with **90% of channels pruned** (~3.97M params, ~0.6G FLOPs).
+
+Each folder contains executable notebooks, experiment reports, and artifacts documenting the full pipeline, so every number below is reproducible.
 
 ## Repository layout
 
 ```
 2025EAI_Project/
-├── README.md                     # Course journal (this file)
+├── README.md                     # Project overview (this file)
 ├── Lab1 Material/                # Lab 1 notebooks, reports, and checkpoints
 ├── Lab1 Material_backup/         # Original templates provided by the course
 ├── EAI_Lab2/                     # Lab 2 sparsity training & pruning workflow
@@ -15,16 +17,16 @@ This repository collects my practical work for the 2025 NCKU “Artificial Intel
 
 > Model checkpoints (`*.pth`) and the CIFAR-10 dataset are excluded from version control to keep the repository lightweight. See **How to reproduce** for regeneration steps.
 
-## Lab highlights
+## Experiment highlights
 
-### Lab 1 – ResNet-18 training pipeline
+### Part 1 – ResNet-18 training pipeline
 | Component | Key references | Highlights |
 | --- | --- | --- |
 | Baseline training | `Lab1-Task1.ipynb`, `Lab1-Task1-Report.md` | Clean PyTorch implementation of ResNet-18 with standard training loop, achieving 83.98% test accuracy. |
 | Advanced training | `Lab1-Task2.ipynb`, `Lab1-Task2-Report.md` | Introduced extensive data augmentation, Kaiming initialization, AMP, cosine LR schedule with warmup, label smoothing, and early stopping. |
 | Result | `Lab1-Task2-Report.md` | Boosted test accuracy to **94.83%** (↑ 7.8% over baseline) with ~11.2M parameters and ~557M FLOPs. |
 
-### Lab 2 – Network slimming & structured pruning (ResNet-56)
+### Part 2 – Network slimming & structured pruning (ResNet-56)
 | Stage | Notebooks & reports | Deliverables |
 | --- | --- | --- |
 | Architecture adaptation | `models/resnet.py`, `REPORT_resnet.md` | Refactored the bottleneck ResNet-56 to accept per-layer channel configurations (`cfg`) while enforcing residual shape compatibility. |
@@ -73,6 +75,6 @@ Run the notebooks inside `Lab1 Material/` or `EAI_Lab2/` in the order documented
 
 ## Acknowledgements
 
-Course: *Artificial Intelligence Model Design and Application*, National Cheng Kung University, 2025.
+Developed as part of *Artificial Intelligence Model Design and Application*, National Cheng Kung University, 2025; all implementations, experiments, and reports are my own work.
 
 Maintainer: **livejiaquan** — repository intended for academic use and personal study reference.
